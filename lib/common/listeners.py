@@ -256,8 +256,8 @@ class Listeners(object):
         cur = self.conn.cursor()
         cur.execute('''
             SELECT id, name, module, listener_type, listener_category, options, created_at
-            FROM listeners WHERE name = {}
-            '''.format(name))
+            FROM listeners WHERE name = ?
+            ''', [name])
         listener = cur.fetchone()
         [ID, name, module, listener_type, listener_category, options, created_at] = listener
         return {'ID': ID, 'name': name, 'module': module, 'listener_type': listener_type,
