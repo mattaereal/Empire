@@ -206,23 +206,13 @@ def start_restful_api(empireMenu, suppress=False, username=None, password=None, 
         """
         List all of the current registered API routes.
         """
-        import urllib.request as urllib
-        output = []
+        output = {}
         for rule in app.url_map.iter_rules():
-
-            options = {}
-            for arg in rule.arguments:
-                options[arg] = "[{0}]".format(arg)
-
             methods = ','.join(rule.methods)
-            url = url_for(rule.endpoint, **options)
-            line = urllib.parse.unquote("[ { '" + rule.endpoint + "': [ { 'methods': '" + methods + "', 'url': '" + url + "' } ] } ]")
-            output.append(line)
+            url = rule.rule
+            output.update({rule.endpoint: {'methods': methods, 'url': url}})
 
-        res = ''
-        for line in sorted(output):
-            res = res + '\r\n' + line
-        return jsonify({'Routes':res})
+        return jsonify({'Routes':output})
 
     @app.route('/api/config', methods=['GET'])
     def get_config():
