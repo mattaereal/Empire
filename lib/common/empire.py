@@ -14,8 +14,11 @@ from __future__ import print_function
 from builtins import input
 from builtins import range
 from builtins import str
+from typing import Optional
 
-VERSION = "3.4.0 BC Security Fork"
+from flask_socketio import SocketIO
+
+VERSION = "3.5.0 BC Security Fork"
 
 from pydispatch import dispatcher
 
@@ -41,6 +44,7 @@ from . import listeners
 from . import modules
 from . import stagers
 from . import credentials
+from . import users
 from . import plugins
 from .events import log_event
 from zlib_wrapper import compress
@@ -117,12 +121,14 @@ class MainMenu(cmd.Cmd):
         self.stagers = stagers.Stagers(self, args=args)
         self.modules = modules.Modules(self, args=args)
         self.listeners = listeners.Listeners(self, args=args)
+        self.users = users.Users(self)
+        self.socketio: Optional[SocketIO] = None
         self.resourceQueue = []
         #A hashtable of autruns based on agent language
         self.autoRuns = {}
         self.handle_args()
         self.startup_plugins()
-
+        
         message = "[*] Empire starting up..."
         signal = json.dumps({
             'print': True,
@@ -328,6 +334,7 @@ class MainMenu(cmd.Cmd):
         
         # enumerate all active servers/listeners and shut them down
         self.listeners.shutdown_listener('all')
+
         message = "[*] Shutting down plugins..."
         signal = json.dumps({
             'print': True,
@@ -342,7 +349,7 @@ class MainMenu(cmd.Cmd):
         Connect to the default database at ./data/empire.db.
         """
         try:
-            # set the database connectiont to autocommit w/ isolation level
+            # set the database connection to autocommit w/ isolation level
             self.conn = sqlite3.connect('./data/empire.db', check_same_thread=False)
             self.conn.text_factory = str
             self.conn.isolation_level = None
@@ -479,8 +486,6 @@ class MainMenu(cmd.Cmd):
         
         print("")
         print(helpers.color("[*] Use \"plugin <plugin name>\" to load a plugin."))
-
-
     
     def do_plugin(self, pluginName):
         "Load a plugin file to extend Empire."
@@ -1058,27 +1063,27 @@ class MainMenu(cmd.Cmd):
 
     def complete_usemodule(self, text, line, begidx, endidx, language=None):
         "Tab-complete an Empire module path."
-
+        
         module_names = list(self.modules.modules.keys())
-
+        module_names = [x for x in module_names if self.modules.modules[x].enabled]
         # suffix each module requiring elevated context with '*'
         for module_name in module_names:
             try:
                 if self.modules.modules[module_name].info['NeedsAdmin']:
-                    module_names[module_names.index(module_name)] = (module_name + "*")
+                    module_names[module_names.index(module_name)] = (module_name+"*")
             # handle modules without a NeedAdmins info key
             except KeyError:
                 pass
-
+        
         if language:
-            module_names = [(module_name[len(language) + 1:]) for module_name in module_names if
-                            module_name.startswith(language)]
-
+            module_names = [ (module_name[len(language)+1:]) for module_name in module_names if module_name.startswith(language)]
+        
         mline = line.partition(' ')[2]
-
+        
         offs = len(mline) - len(text)
-
+        
         module_names = [s[offs:] for s in module_names if s.startswith(mline)]
+
 
         return module_names
     
